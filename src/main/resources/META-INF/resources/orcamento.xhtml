@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="jakarta.faces.html"
+      xmlns:f="jakarta.faces.core"
+      xmlns:ui="jakarta.faces.facelets"
+      xmlns:c="jakarta.tags.core">
+
+<h:head>
+    <meta charset="UTF-8"/>
+    <title>Calculadora de Materiais — Obra Residencial</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; color: #333; }
+        h1 { color: #2c5f8a; border-bottom: 2px solid #2c5f8a; padding-bottom: 8px; }
+        h2 { color: #2c5f8a; margin-top: 30px; }
+        h3 { color: #444; }
+        .card { background: #fff; border-radius: 6px; padding: 20px; margin-bottom: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,.1); }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #2c5f8a; color: #fff; padding: 8px; text-align: left; }
+        td { padding: 6px 8px; border-bottom: 1px solid #ddd; vertical-align: middle; }
+        tr:nth-child(even) td { background: #f9f9f9; }
+        input[type=text], input[type=number], select, textarea {
+            padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px;
+            font-size: 13px; width: 95%;
+        }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
+               font-size: 14px; margin: 4px 2px; }
+        .btn-primary { background: #2c5f8a; color: #fff; }
+        .btn-primary:hover { background: #1e4a6e; }
+        .btn-success { background: #28a745; color: #fff; }
+        .btn-success:hover { background: #1e7e34; }
+        .btn-danger  { background: #dc3545; color: #fff; font-size: 12px; padding: 4px 10px; }
+        .btn-secondary { background: #6c757d; color: #fff; }
+        .btn-info { background: #17a2b8; color: #fff; }
+        .resultado { background: #e8f5e9; border-left: 4px solid #28a745; padding: 15px;
+                     border-radius: 4px; margin-top: 10px; }
+        .resultado-num { font-size: 24px; font-weight: bold; color: #155724; }
+        .alerta-aviso { background: #fff3cd; border: 1px solid #ffc107; padding: 10px;
+                        border-radius: 4px; margin-bottom: 10px; }
+        label { font-weight: bold; font-size: 13px; }
+        .modo-radio label { font-weight: normal; margin-right: 20px; font-size: 14px; }
+        .campo-linha { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .campo-linha label { min-width: 160px; }
+        .secao-busca input[type=text] { width: 300px; }
+        .msg-erro { color: #dc3545; font-weight: bold; }
+        .msg-info { color: #155724; font-weight: bold; }
+    </style>
+</h:head>
+
+<h:body>
+    <h1>Calculadora de Materiais para Obra Residencial</h1>
+    <p>UniCEUB — Desenvolvimento de Sistemas | Aluno: <b><h:outputText value="#{orcamentoBean.nomeUsuario eq null ? '—' : orcamentoBean.nomeUsuario}"/></b></p>
+
+    <h:form id="formPrincipal">
+
+        <!-- ── Mensagens globais ──────────────────────────────────── -->
+        <h:messages globalOnly="true" styleClass="alerta-aviso" layout="list"/>
+
+        <!-- ── 1. Identificação ───────────────────────────────────── -->
+        <div class="card">
+            <h2>1. Identificação do Orçamento</h2>
+            <div class="campo-linha">
+                <label for="nomeUsuario">Nome do usuário:</label>
+                <h:inputText id="nomeUsuario" value="#{orcamentoBean.nomeUsuario}"
+                             required="true" requiredMessage="Informe o nome do usuário."
+                             style="width:300px"/>
+            </div>
+        </div>
+
+        <!-- ── 2. Modo de entrada ─────────────────────────────────── -->
+        <div class="card">
+            <h2>2. Modo de Entrada da Planta</h2>
+            <div class="modo-radio">
+                <h:selectOneRadio id="modoEntrada" value="#{orcamentoBean.modoEntrada}" layout="lineDirection">
+                    <f:selectItem itemValue="MANUAL" itemLabel="Preencher manualmente"/>
+                    <f:selectItem itemValue="JSON"   itemLabel="Importar JSON"/>
+                    <f:ajax event="change" render="painelManual painelJson painelParams"/>
+                </h:selectOneRadio>
+            </div>
+        </div>
+
+        <!-- ── 3a. Painel manual ──────────────────────────────────── -->
+        <h:panelGroup id="painelManual" layout="block">
+            <ui:fragment rendered="#{orcamentoBean.modoManual}">
+
+                <!-- Vértices (pilares) -->
+                <div class="card">
+                    <h2>3. Pilares (Vértices)</h2>
+                    <table>
+                        <tr>
+                            <th>ID</th>
+                            <th>Descrição</th>
+                            <th style="width:80px">Ação</th>
+                        </tr>
+                        <ui:repeat value="#{orcamentoBean.vertices}" var="v">
+                            <tr>
+                                <td><h:inputText value="#{v.id}" style="width:80px"/></td>
+                                <td><h:inputText value="#{v.descricao}"/></td>
+                                <td>
+                                    <h:commandButton value="Remover" styleClass="btn btn-danger"
+                                                     action="#{orcamentoBean.removerVertice(v)}"
+                                                     immediate="true">
+                                        <f:ajax render="painelManual"/>
+                                    </h:commandButton>
+                                </td>
+                            </tr>
+                        </ui:repeat>
+                    </table>
+                    <br/>
+                    <h:commandButton value="+ Adicionar Pilar" styleClass="btn btn-secondary"
+                                     action="#{orcamentoBean.adicionarVertice}" immediate="true">
+                        <f:ajax render="painelManual"/>
+                    </h:commandButton>
+                </div>
+
+                <!-- Arestas (paredes) -->
+                <div class="card">
+                    <h2>4. Paredes (Arestas)</h2>
+                    <table>
+                        <tr>
+                            <th>ID</th>
+                            <th>Origem</th>
+                            <th>Destino</th>
+                            <th>Comp. (m)</th>
+                            <th>Larg. (m)</th>
+                            <th>Alt. Parede (m)</th>
+                            <th>Janela?</th>
+                            <th>Largura Janela (m)</th>
+                            <th>Alt. Janela (m)</th>
+                            <th>Porta?</th>
+                            <th>Largura Porta (m)</th>
+                            <th>Alt. Porta (m)</th>
+                            <th style="width:80px">Ação</th>
+                        </tr>
+                        <ui:repeat value="#{orcamentoBean.arestas}" var="a">
+                            <tr>
+                                <td><h:inputText value="#{a.id}" style="width:50px"/></td>
+                                <td><h:inputText value="#{a.verticeOrigem}" style="width:50px"/></td>
+                                <td><h:inputText value="#{a.verticeDestino}" style="width:50px"/></td>
+                                <td><h:inputText value="#{a.comprimento}" style="width:65px"
+                                                 converter="jakarta.faces.Double"/></td>
+                                <td><h:inputText value="#{a.largura}" style="width:60px"
+                                                 converter="jakarta.faces.Double"/></td>
+                                <td><h:inputText value="#{a.alturaParede}" style="width:65px"
+                                                 converter="jakarta.faces.Double"/></td>
+                                <td>
+                                    <h:selectBooleanCheckbox value="#{a.temJanela}">
+                                        <f:ajax render="painelManual"/>
+                                    </h:selectBooleanCheckbox>
+                                </td>
+                                <td>
+                                    <h:inputText value="#{a.janelaComprimento}" style="width:65px"
+                                                 disabled="#{!a.temJanela}"
+                                                 converter="jakarta.faces.Double"/>
+                                </td>
+                                <td>
+                                    <h:inputText value="#{a.janelAltura}" style="width:65px"
+                                                 disabled="#{!a.temJanela}"
+                                                 converter="jakarta.faces.Double"/>
+                                </td>
+                                <td>
+                                    <h:selectBooleanCheckbox value="#{a.temPorta}">
+                                        <f:ajax render="painelManual"/>
+                                    </h:selectBooleanCheckbox>
+                                </td>
+                                <td>
+                                    <h:inputText value="#{a.portaComprimento}" style="width:65px"
+                                                 disabled="#{!a.temPorta}"
+                                                 converter="jakarta.faces.Double"/>
+                                </td>
+                                <td>
+                                    <h:inputText value="#{a.portaAltura}" style="width:65px"
+                                                 disabled="#{!a.temPorta}"
+                                                 converter="jakarta.faces.Double"/>
+                                </td>
+                                <td>
+                                    <h:commandButton value="Remover" styleClass="btn btn-danger"
+                                                     action="#{orcamentoBean.removerAresta(a)}"
+                                                     immediate="true">
+                                        <f:ajax render="painelManual"/>
+                                    </h:commandButton>
+                                </td>
+                            </tr>
+                        </ui:repeat>
+                    </table>
+                    <br/>
+                    <h:commandButton value="+ Adicionar Parede" styleClass="btn btn-secondary"
+                                     action="#{orcamentoBean.adicionarAresta}" immediate="true">
+                        <f:ajax render="painelManual"/>
+                    </h:commandButton>
+                </div>
+
+            </ui:fragment>
+        </h:panelGroup>
+
+        <!-- ── 3b. Painel JSON ────────────────────────────────────── -->
+        <h:panelGroup id="painelJson" layout="block">
+            <ui:fragment rendered="#{orcamentoBean.modoJson}">
+                <div class="card">
+                    <h2>3. Importar Planta via JSON</h2>
+                    <p>Cole abaixo o payload no mesmo formato dos endpoints existentes.
+                       Campos suportados: <code>arestas</code>, <code>vertices</code>,
+                       <code>altura</code>, <code>tijoloComprimento</code>,
+                       <code>tijoloAltura</code>, <code>tijoloLargura</code>.</p>
+                    <h:inputTextarea id="jsonInput" value="#{orcamentoBean.jsonInput}"
+                                     rows="12" style="width:100%; font-family:monospace; font-size:12px;"
+                                     placeholder='{"altura":0.30,"tijoloComprimento":0.19,"tijoloAltura":0.05,"tijoloLargura":0.09,"arestas":[{"id":"A1","verticeOrigem":"V1","verticeDestino":"V2","comprimento":5.0,"largura":0.20,"alturaParede":2.80,"temJanela":false,"temPorta":false}]}'/>
+                </div>
+            </ui:fragment>
+        </h:panelGroup>
+
+        <!-- ── 4. Parâmetros de cálculo ───────────────────────────── -->
+        <h:panelGroup id="painelParams" layout="block">
+            <div class="card">
+                <h2><h:outputText value="#{orcamentoBean.modoManual ? '5' : '4'}"/>. Parâmetros de Cálculo</h2>
+
+                <h3>Viga Baldrame (Concreto)</h3>
+                <div class="campo-linha">
+                    <label for="alturaViga">Altura da viga (m):</label>
+                    <h:inputText id="alturaViga" value="#{orcamentoBean.alturaViga}"
+                                 style="width:100px" converter="jakarta.faces.Double"
+                                 rendered="#{orcamentoBean.modoManual}"/>
+                    <h:outputText value="#{orcamentoBean.alturaViga} m (definido no JSON)"
+                                  rendered="#{orcamentoBean.modoJson}"/>
+                </div>
+
+                <h3>Tijolo</h3>
+                <div class="campo-linha">
+                    <label for="tijoloComp">Comprimento do tijolo (m):</label>
+                    <h:inputText id="tijoloComp" value="#{orcamentoBean.tijoloComprimento}"
+                                 style="width:100px" converter="jakarta.faces.Double"
+                                 rendered="#{orcamentoBean.modoManual}"/>
+                    <h:outputText value="#{orcamentoBean.tijoloComprimento} m"
+                                  rendered="#{orcamentoBean.modoJson}"/>
+                </div>
+                <div class="campo-linha">
+                    <label for="tijoloAlt">Altura do tijolo (m):</label>
+                    <h:inputText id="tijoloAlt" value="#{orcamentoBean.tijoloAltura}"
+                                 style="width:100px" converter="jakarta.faces.Double"
+                                 rendered="#{orcamentoBean.modoManual}"/>
+                    <h:outputText value="#{orcamentoBean.tijoloAltura} m"
+                                  rendered="#{orcamentoBean.modoJson}"/>
+                </div>
+                <div class="campo-linha">
+                    <label for="tijoloLarg">Largura do tijolo (m):</label>
+                    <h:inputText id="tijoloLarg" value="#{orcamentoBean.tijoloLargura}"
+                                 style="width:100px" converter="jakarta.faces.Double"
+                                 rendered="#{orcamentoBean.modoManual}"/>
+                    <h:outputText value="#{orcamentoBean.tijoloLargura} m"
+                                  rendered="#{orcamentoBean.modoJson}"/>
+                </div>
+            </div>
+        </h:panelGroup>
+
+        <!-- ── 5. Botão calcular ──────────────────────────────────── -->
+        <div class="card">
+            <h:commandButton id="btnCalcular" value="Calcular Orçamento"
+                             styleClass="btn btn-success"
+                             action="#{orcamentoBean.calcularOrcamento}">
+                <f:ajax execute="@form" render="@form" onevent="scrollToResultado"/>
+            </h:commandButton>
+            <h:commandButton value="Limpar" styleClass="btn btn-secondary"
+                             action="#{orcamentoBean.limpar}" immediate="true">
+                <f:ajax render="@form"/>
+            </h:commandButton>
+        </div>
+
+        <!-- ── 6. Resultado do cálculo ───────────────────────────── -->
+        <h:panelGroup id="painelResultado" layout="block">
+            <ui:fragment rendered="#{orcamentoBean.orcamentoResultado != null}">
+                <div class="card resultado" id="resultado">
+                    <h2>Resultado do Orçamento</h2>
+                    <p><b>Número:</b>
+                        <span class="resultado-num">
+                            <h:outputText value="#{orcamentoBean.orcamentoResultado.numeroOrcamento}"/>
+                        </span>
+                    </p>
+                    <p><b>Usuário:</b> <h:outputText value="#{orcamentoBean.orcamentoResultado.nomeUsuario}"/></p>
+                    <p><b>Data/Hora:</b>
+                        <h:outputText value="#{orcamentoBean.orcamentoResultado.dataCriacao}">
+                            <f:convertDateTime type="localDateTime" pattern="dd/MM/yyyy HH:mm:ss"/>
+                        </h:outputText>
+                    </p>
+                    <hr/>
+                    <p style="font-size:18px">
+                        <b>Volume total de concreto:</b>
+                        <h:outputText value="#{orcamentoBean.orcamentoResultado.volumeTotalConcretoM3}">
+                            <f:convertNumber maxFractionDigits="3" minFractionDigits="3"/>
+                        </h:outputText>
+                        m³
+                    </p>
+                    <p style="font-size:18px">
+                        <b>Quantidade total de tijolos:</b>
+                        <h:outputText value="#{orcamentoBean.orcamentoResultado.quantidadeTotalTijolos}"/>
+                        unidades (já inclui 10% de perda)
+                    </p>
+                </div>
+            </ui:fragment>
+        </h:panelGroup>
+
+        <!-- ── 7. Seção de busca ──────────────────────────────────── -->
+        <div class="card secao-busca">
+            <h2>Consultar Orçamentos Anteriores</h2>
+            <div class="campo-linha">
+                <label>Buscar por:</label>
+                <h:inputText id="termoBusca" value="#{orcamentoBean.termoBusca}"
+                             placeholder="Número do orçamento ou nome" style="width:300px"/>
+                <h:commandButton value="Por Número" styleClass="btn btn-info"
+                                 action="#{orcamentoBean.buscarPorNumero}">
+                    <f:ajax execute="termoBusca" render="painelBusca"/>
+                </h:commandButton>
+                <h:commandButton value="Por Nome" styleClass="btn btn-info"
+                                 action="#{orcamentoBean.buscarPorNome}">
+                    <f:ajax execute="termoBusca" render="painelBusca"/>
+                </h:commandButton>
+            </div>
+
+            <h:panelGroup id="painelBusca" layout="block">
+                <ui:fragment rendered="#{not empty orcamentoBean.resultadosBusca}">
+                    <table style="margin-top:15px">
+                        <tr>
+                            <th>Número</th>
+                            <th>Usuário</th>
+                            <th>Data</th>
+                            <th>Concreto (m³)</th>
+                            <th>Tijolos</th>
+                        </tr>
+                        <ui:repeat value="#{orcamentoBean.resultadosBusca}" var="orc">
+                            <tr>
+                                <td><h:outputText value="#{orc.numeroOrcamento}"/></td>
+                                <td><h:outputText value="#{orc.nomeUsuario}"/></td>
+                                <td>
+                                    <h:outputText value="#{orc.dataCriacao}">
+                                        <f:convertDateTime type="localDateTime" pattern="dd/MM/yyyy HH:mm"/>
+                                    </h:outputText>
+                                </td>
+                                <td>
+                                    <h:outputText value="#{orc.volumeTotalConcretoM3}">
+                                        <f:convertNumber maxFractionDigits="3"/>
+                                    </h:outputText>
+                                </td>
+                                <td><h:outputText value="#{orc.quantidadeTotalTijolos}"/></td>
+                            </tr>
+                        </ui:repeat>
+                    </table>
+                </ui:fragment>
+                <ui:fragment rendered="#{empty orcamentoBean.resultadosBusca and orcamentoBean.termoBusca != null}">
+                    <p class="msg-erro">Nenhum orçamento encontrado para "<h:outputText value="#{orcamentoBean.termoBusca}"/>".</p>
+                </ui:fragment>
+            </h:panelGroup>
+        </div>
+
+    </h:form>
+
+    <script>
+        function scrollToResultado(data) {
+            if (data.status === 'success') {
+                var el = document.getElementById('resultado');
+                if (el) { setTimeout(function() { el.scrollIntoView({behavior:'smooth'}); }, 200); }
+            }
+        }
+    </script>
+</h:body>
+</html>
