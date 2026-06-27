@@ -1,0 +1,16 @@
+POST http://localhost:8080/api/brick-quantity
+Content-Type: application/json
+
+{
+  "tijoloAltura": 0.057,
+  "tijoloComprimento": 0.19,
+  "arestas": [
+    {
+      "id": "a1",
+      "comprimento": 5.0,
+      "alturaParede": 2.8,
+      "temJanela": false,
+      "temPorta": false
+    }
+  ]
+}
