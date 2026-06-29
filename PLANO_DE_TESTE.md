@@ -22,9 +22,10 @@ Testar o sistema desenvolvido na Etapa 2 da atividade avaliativa, cobrindo:
 | Item | Valor |
 |------|-------|
 | URL da aplicação | http://localhost:8080/orcamento.xhtml |
-| Banco de dados | Supabase — `db.efvjiosjxenrgeygvqms.supabase.co:5432` |
+| Banco de dados | Supabase — Session Mode Pooler `aws-1-us-east-1.pooler.supabase.com:5432` |
 | Variável de ambiente | `DB_PASSWORD` exportada localmente |
-| Comando de execução | `mvn spring-boot:run` |
+| Comando de execução | `java -Djdk.net.unixdomain.tmpdir=C:\Temp -jar target\calculator-1.0.0.jar` |
+| Data de execução | 2026-06-27 |
 
 ---
 
@@ -139,7 +140,7 @@ Testar o sistema desenvolvido na Etapa 2 da atividade avaliativa, cobrindo:
 - Área abertura janela: `1,20 × 1,00 = 1,20 m²`
 - Área abertura porta:  `0,80 × 2,10 = 1,68 m²`
 - Área líquida: `14,00 − 1,20 − 1,68 = 11,12 m²`
-- Tijolos: `ceil((11,12 / 0,0095) × 1,10) = ceil(1286,74) = 1287 unidades`
+- Tijolos: `ceil((11,12 / 0,0095) × 1,10) = ceil(1287,578) = 1288 unidades`
 
 ---
 
@@ -168,13 +169,22 @@ Para cada caso de teste aprovado, coletar:
 
 ## 5. Registro de Resultados
 
-| CT | Descrição | Status | Observações |
-|----|-----------|--------|-------------|
-| CT-01 | Orçamento via formulário manual | ⬜ Pendente | |
-| CT-02 | Orçamento via JSON | ⬜ Pendente | |
-| CT-03 | Busca por número existente | ⬜ Pendente | |
-| CT-04 | Busca por nome de usuário | ⬜ Pendente | |
-| CT-05 | Busca por número inexistente | ⬜ Pendente | |
-| CT-06 | Planta sem arestas | ⬜ Pendente | |
-| CT-07 | Parede com porta e janela | ⬜ Pendente | |
-| CT-08 | Persistência pós-restart | ⬜ Pendente | |
+**Data de execução:** 2026-06-27  
+**Banco:** Supabase produção (`aws-1-us-east-1.pooler.supabase.com:5432`)
+
+| CT | Descrição | Status | Evidências |
+|----|-----------|--------|------------|
+| CT-01 | Orçamento via formulário manual | ✅ PASSOU | `ORC-1782597224888` gerado; volume 0,300 m³; 1622 tijolos; persistido no Supabase às 18:53 de 27/06/2026 |
+| CT-02 | Orçamento via JSON | ✅ PASSOU | `ORC-1782597432965` gerado com mesmos valores (0,300 m³; 1622 tijolos); persistido no Supabase às 18:57 de 27/06/2026 |
+| CT-03 | Busca por número existente | ✅ PASSOU | Busca por `ORC-1782597224888` retornou o registro correto (Guilherme, 27/06/2026, 0,3 m³, 1622 tijolos) |
+| CT-04 | Busca por nome de usuário | ✅ PASSOU | Busca por `Guilherme` retornou ambos os orçamentos (ORC-1782597224888 e ORC-1782597432965) |
+| CT-05 | Busca por número inexistente | ✅ PASSOU | Busca por `XYZ999` exibiu "Nenhum orçamento encontrado" sem erro 500 |
+| CT-06 | Planta sem arestas | ✅ PASSOU | Após remover a aresta via AJAX, submit exibiu "Adicione pelo menos uma parede (aresta) antes de calcular" sem gerar ORC nem lançar exceção |
+| CT-07 | Parede com porta e janela | ✅ PASSOU | `ORC-1782598020343` — janela 1,20×1,00m + porta 0,80×2,10m; área líquida 11,12 m²; 1288 tijolos (⌈1287,58⌉); persistido no Supabase às 19:07 de 27/06/2026 |
+| CT-08 | Persistência pós-restart | ✅ PASSOU | App reiniciado; busca por `ORC-1782597224888` retornou Guilherme, 27/06/2026 18:53, 0,3 m³, 1622 tijolos — dados persistidos no Supabase |
+
+### Observações
+
+- **CT-07:** O plano previa 1287 tijolos; o sistema calculou 1288. Divergência de 1 unidade por diferença de arredondamento: `ceil((11,12 / 0,0095) × 1,10) = ceil(1287,578) = 1288`. Valor correto matematicamente — o plano continha arredondamento antecipado.
+- **Pooler Supabase:** o host direto `db.efvjiosjxenrgeygvqms.supabase.co` resolve somente AAAA (IPv6); a máquina de desenvolvimento não possui IPv6 global. Usado Session Mode Pooler `aws-1-us-east-1.pooler.supabase.com:5432` que possui registro A (IPv4).
+- **Java 22 / Windows:** necessário `-Djdk.net.unixdomain.tmpdir=C:\Temp` para evitar falha de `PipeImpl` quando o caminho do usuário contém caracteres acentuados.
