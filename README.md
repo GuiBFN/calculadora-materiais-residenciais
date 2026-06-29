@@ -1,60 +1,81 @@
 # Calculadora de Materiais para Obra Residencial
 
-Atividade avaliativa — Disciplina: Desenvolvimento de Sistemas (UniCEUB) | Aluno: Guilherme
+Atividade avaliativa — Disciplina: Desenvolvimento de Sistemas (UniCEUB)
 
-Sistema para cálculo de materiais em obras residenciais, modelando a planta baixa como um grafo G=(V,A). Inclui API REST e frontend Jakarta Faces com persistência em Supabase.
+Sistema de orçamento para obras residenciais que calcula consumo de materiais (concreto e tijolos) a partir da planta baixa, modelada como um grafo G=(V,A) — onde vértices são pilares e arestas são paredes. Inclui API REST, frontend em Jakarta Faces (JSF) e persistência em banco de dados (Supabase/PostgreSQL).
 
 ## Tecnologias
 
-- Java 22 (Amazon Corretto)
+- Java 21
 - Spring Boot 3.3.5
-- Jakarta Faces 4.0 (JSF via Joinfaces 5.3.1 — sem servidor externo, Tomcat embutido)
-- Spring Data JPA + Hibernate 6
-- PostgreSQL — Supabase (produção) / H2 em memória (perfil local)
-- Maven (bundled IntelliJ IDEA)
+- Jakarta Faces (JSF) via Joinfaces — sem necessidade de servidor de aplicação externo
+- Spring Data JPA + PostgreSQL (Supabase) em produção / H2 em memória para testes locais
+- Maven
 
-## Pré-requisitos
+## Funcionalidades
 
-- Amazon Corretto 22 instalado em `C:\Users\<usuário>\.jdks\corretto-22.0.2`
-- Maven (bundled IntelliJ IDEA ou instalação global)
-- Para perfil Supabase: variável `DB_PASSWORD` e conectividade IPv6 com o host `db.*.supabase.co`
+- **Cálculo de concreto**: volume de vigas baldrame por parede
+- **Cálculo de tijolos**: quantidade por parede, descontando vãos de portas/janelas, com 10% de perda
+- **Tela de orçamento** (`/orcamento.xhtml`):
+  - Modo **Manual**: formulário para informar vértices (pilares) e arestas (paredes) individualmente, com suporte a portas e janelas por parede
+  - Modo **JSON**: importação da planta completa colando um JSON no schema dos DTOs da API
+  - Geração de orçamento único (concreto + tijolos calculados juntos), salvo com número único `ORC-{timestamp}`
+  - Busca de orçamentos anteriores por número ou por nome de usuário
+- **Persistência real**: cada orçamento é salvo no banco de dados, sobrevivendo a reinicializações da aplicação
 
 ## Como rodar
 
-### Perfil LOCAL (H2 em memória — não precisa de Supabase)
+### Opção 1 — Com Supabase (produção, persistência real)
+
+Pré-requisito: variável de ambiente `DB_PASSWORD` configurada (nunca commitada no código).
 
 ```powershell
-# Windows PowerShell — substitua o caminho do Java conforme sua instalação
-$java = "C:\Users\<usuário>\.jdks\corretto-22.0.2\bin\java.exe"
+$env:DB_PASSWORD = "sua-senha-do-supabase"
+mvn spring-boot:run
+```
 
-# Compilar
-$mvn = "C:\Program Files\JetBrains\IntelliJ IDEA 2026.1\plugins\maven\lib\maven3\bin\mvn.cmd"
-& $mvn package -DskipTests
+A aplicação conecta ao Supabase via **Session Mode Pooler** (IPv4), configurado em `application.properties`:
 
-# Rodar (perfil local com H2)
+| Parâmetro | Valor |
+|---|---|
+| Host | `aws-1-us-east-1.pooler.supabase.com` |
+| Porta | `5432` |
+| Usuário | `postgres.efvjiosjxenrgeygvqms` |
+| Senha | lida de `${DB_PASSWORD}` |
+
+> O host de conexão direta (`db.*.supabase.co`) resolve apenas em IPv6 (registro AAAA) e não funciona em redes/máquinas sem IPv6 global. Por isso, a conexão de produção usa o Session Pooler, que é IPv4 e não tem essa limitação.
+
+### Opção 2 — Local com H2 (sem depender de internet ou credenciais)
+
+Para testar a aplicação sem configurar o Supabase, use o perfil `local`, que roda com banco H2 em memória:
+
+```powershell
+mvn package -DskipTests
 & $java -Djdk.net.unixdomain.tmpdir=C:\Temp -jar target\calculator-1.0.0.jar --spring.profiles.active=local
 ```
 
-> **Nota:** O flag `-Djdk.net.unixdomain.tmpdir=C:\Temp` é necessário no Java 22 em Windows quando o diretório de usuário contém caracteres especiais (ex: acentos).
+- Schema criado automaticamente pelo Hibernate
+- Console H2 disponível em `http://localhost:8080/h2-console`
+- **Atenção**: dados não persistem entre reinicializações neste modo — útil apenas para teste rápido da interface, não substitui a evidência de persistência real exigida pela atividade
 
-### Perfil PRODUÇÃO (Supabase / PostgreSQL)
+Em ambos os casos, a aplicação fica disponível em `http://localhost:8080`, e a tela de orçamento em `http://localhost:8080/orcamento.xhtml`.
+
+#### Nota técnica — Java 22 no Windows
+
+Se estiver usando Java 22 no Windows e o diretório de usuário tiver caracteres acentuados (ex: `C:\Users\Usuário`), a aplicação pode falhar ao tentar criar Unix Domain Sockets no diretório temporário padrão. A flag `-Djdk.net.unixdomain.tmpdir=C:\Temp` contorna isso, apontando para um caminho sem acentos. Antes de rodar, crie o diretório caso não exista:
 
 ```powershell
-$env:DB_PASSWORD = "sua-senha-aqui"   # nunca commite a senha
-& $java -Djdk.net.unixdomain.tmpdir=C:\Temp -jar target\calculator-1.0.0.jar
+New-Item -ItemType Directory -Force C:\Temp
 ```
 
-### URLs
+## Segurança
 
-- **Frontend (JSF):** `http://localhost:8080/orcamento.xhtml`
-- **Console H2** (perfil local): `http://localhost:8080/h2-console`
-- **API REST:** `http://localhost:8080/api/...`
+A senha do banco de dados **nunca é commitada** no repositório. Ela é sempre lida da variável de ambiente `DB_PASSWORD`, configurada localmente pelo desenvolvedor antes de iniciar a aplicação. Caso um arquivo `.env` seja criado para conveniência local, ele deve estar listado no `.gitignore`.
 
----
-
-## Endpoints
+## Endpoints REST
 
 ### POST `/api/concrete-volume`
+
 Calcula o volume de concreto das vigas baldrame.
 
 **Fórmula:** `Volume = Largura × Altura × Comprimento` por aresta
@@ -70,6 +91,7 @@ Calcula o volume de concreto das vigas baldrame.
 ```
 
 **Resposta:**
+
 ```json
 {
   "volumeTotalM3": 0.64,
@@ -78,9 +100,8 @@ Calcula o volume de concreto das vigas baldrame.
 }
 ```
 
----
-
 ### POST `/api/brick-quantity`
+
 Calcula a quantidade de tijolos por parede (com 10% de perda).
 
 **Fórmula:** `(Área líquida / Área da face do tijolo) × 1.10`
@@ -98,6 +119,7 @@ Calcula a quantidade de tijolos por parede (com 10% de perda).
 ```
 
 **Resposta:**
+
 ```json
 {
   "quantidadeTotalTijolos": 996,
@@ -105,12 +127,6 @@ Calcula a quantidade de tijolos por parede (com 10% de perda).
   "descricao": "Quantidade de tijolos com 10% de perda incluída"
 }
 ```
-
----
-
-## Plano de Teste
-
-Ver [PLANO_DE_TESTE.md](PLANO_DE_TESTE.md) para os 8 casos de teste documentados (CT-01 a CT-08).
 
 ## Estrutura do Projeto
 
@@ -136,9 +152,27 @@ src/main/java/com/obra/calculator/
     └── CalculadoraController.java
 
 src/main/resources/
-├── application.properties
+├── application.properties           # Produção (Supabase)
+├── application-local.properties     # Perfil local (H2)
 └── META-INF/
     ├── faces-config.xml
     └── resources/
-        └── orcamento.xhtml      # Tela principal JSF
+        └── orcamento.xhtml          # Tela principal JSF
 ```
+
+## Plano de Teste
+
+Ver [PLANO_DE_TESTE.md](PLANO_DE_TESTE.md) para os 8 casos de teste documentados e executados.
+
+**Resultado da execução em 27/06/2026 — todos os casos passaram:**
+
+| CT | Descrição | Status |
+|----|-----------|--------|
+| CT-01 | Orçamento via formulário manual | ✅ PASSOU |
+| CT-02 | Orçamento via importação JSON | ✅ PASSOU |
+| CT-03 | Busca por número existente | ✅ PASSOU |
+| CT-04 | Busca por nome de usuário | ✅ PASSOU |
+| CT-05 | Busca por número inexistente | ✅ PASSOU |
+| CT-06 | Planta sem nenhuma aresta (validação) | ✅ PASSOU |
+| CT-07 | Parede com porta e janela simultaneamente | ✅ PASSOU |
+| CT-08 | Persistência sobrevive a restart | ✅ PASSOU |
