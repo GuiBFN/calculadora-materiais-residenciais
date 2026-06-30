@@ -6,9 +6,9 @@ Sistema de orçamento para obras residenciais que calcula consumo de materiais (
 
 ## Tecnologias
 
-- Java 21
+- Java 21 / 22
 - Spring Boot 3.3.5
-- Jakarta Faces (JSF) via Joinfaces — sem necessidade de servidor de aplicação externo
+- Jakarta Faces (JSF) via JoinFaces 5.3.1 — sem necessidade de servidor de aplicação externo
 - Spring Data JPA + PostgreSQL (Supabase) em produção / H2 em memória para testes locais
 - Maven
 
@@ -16,12 +16,25 @@ Sistema de orçamento para obras residenciais que calcula consumo de materiais (
 
 - **Cálculo de concreto**: volume de vigas baldrame por parede
 - **Cálculo de tijolos**: quantidade por parede, descontando vãos de portas/janelas, com 10% de perda
-- **Tela de orçamento** (`/orcamento.xhtml`):
+- **Tela de orçamento** (`/orcamento.xhtml`) com visual dark industrial:
   - Modo **Manual**: formulário para informar vértices (pilares) e arestas (paredes) individualmente, com suporte a portas e janelas por parede
   - Modo **JSON**: importação da planta completa colando um JSON no schema dos DTOs da API
   - Geração de orçamento único (concreto + tijolos calculados juntos), salvo com número único `ORC-{timestamp}`
   - Busca de orçamentos anteriores por número ou por nome de usuário
+  - Redirecionamento automático de `/` para a tela de orçamento
+- **Validações de entrada**: valores negativos ou zero em qualquer campo numérico são rejeitados com mensagem de erro específica
 - **Persistência real**: cada orçamento é salvo no banco de dados, sobrevivendo a reinicializações da aplicação
+
+## Interface
+
+A tela principal usa um design dark industrial com:
+
+- Paleta escura (`#0f1117` / `#1a1d27`) com destaque laranja (`#f5a623`) e teal (`#4ecdc4`)
+- Fontes **Share Tech Mono** (cabeçalhos) e **Barlow** (corpo), via Google Fonts
+- Cards com borda superior colorida e animação de entrada
+- Toggle de modo como botões-aba estilizados
+- Tabelas de pilares/paredes com cabeçalho escuro e rótulos em laranja
+- Card de resultado com borda verde e valores em teal
 
 ## Como rodar
 
@@ -58,7 +71,7 @@ mvn package -DskipTests
 - Console H2 disponível em `http://localhost:8080/h2-console`
 - **Atenção**: dados não persistem entre reinicializações neste modo — útil apenas para teste rápido da interface, não substitui a evidência de persistência real exigida pela atividade
 
-Em ambos os casos, a aplicação fica disponível em `http://localhost:8080`, e a tela de orçamento em `http://localhost:8080/orcamento.xhtml`.
+Em ambos os casos, a aplicação fica disponível em `http://localhost:8080` (redireciona automaticamente para `/orcamento.xhtml`).
 
 #### Nota técnica — Java 22 no Windows
 
@@ -149,7 +162,8 @@ src/main/java/com/obra/calculator/
 ├── bean/
 │   └── OrcamentoBean.java       # Managed bean Jakarta Faces
 └── controller/
-    └── CalculadoraController.java
+    ├── CalculadoraController.java
+    └── HomeController.java      # Redireciona / → /orcamento.xhtml
 
 src/main/resources/
 ├── application.properties           # Produção (Supabase)
@@ -176,3 +190,15 @@ Ver [PLANO_DE_TESTE.md](PLANO_DE_TESTE.md) para os 8 casos de teste documentados
 | CT-06 | Planta sem nenhuma aresta (validação) | ✅ PASSOU |
 | CT-07 | Parede com porta e janela simultaneamente | ✅ PASSOU |
 | CT-08 | Persistência sobrevive a restart | ✅ PASSOU |
+
+**Correções e melhorias aplicadas em 29/06/2026:**
+
+| ID | Descrição |
+|----|-----------|
+| BUG-1 | Botão Remover atualiza tabela imediatamente via AJAX |
+| BUG-2 | JSON com `alturaParede` ausente ou zero é rejeitado antes do cálculo |
+| BUG-3 | Valores negativos ou zero em campos numéricos bloqueiam o cálculo com mensagem de erro |
+| UX-1 | Erros de parsing JSON exibem mensagem amigável em vez do stack trace do Jackson |
+| UX-2 | `h:messages` com `globalOnly="false"` captura erros de conversão de campos numéricos |
+| UX-4 | Clicar nos botões de busca com campo vazio exibe orientação ao usuário |
+| ❌-1 | Raiz `/` redireciona automaticamente para `/orcamento.xhtml` (era 404) |
