@@ -380,11 +380,13 @@
         </div>
 
         <!-- ── Mensagens globais ── -->
-        <h:messages id="msgBox" globalOnly="false" layout="list"
-                    styleClass="msg-global"
-                    errorClass="msg-erro"
-                    infoClass="msg-info"
-                    warnClass="msg-aviso"/>
+        <h:panelGroup id="msgBox" layout="block">
+            <h:messages globalOnly="false" layout="list"
+                        styleClass="msg-global"
+                        errorClass="msg-erro"
+                        infoClass="msg-info"
+                        warnClass="msg-aviso"/>
+        </h:panelGroup>
 
         <!-- ── [ 01 ] Dados do Orçamento ── -->
         <div class="card">
@@ -746,7 +748,7 @@
                         </table>
                     </div>
                 </ui:fragment>
-                <ui:fragment rendered="#{empty orcamentoBean.resultadosBusca and orcamentoBean.termoBusca != null}">
+                <ui:fragment rendered="#{empty orcamentoBean.resultadosBusca and not empty orcamentoBean.termoBusca}">
                     <p class="busca-vazio">Nenhum or&#231;amento encontrado para
                         &#x201c;<h:outputText value="#{orcamentoBean.termoBusca}"/>&#x201d;.</p>
                 </ui:fragment>
