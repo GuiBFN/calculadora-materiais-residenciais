@@ -1,5 +1,6 @@
 package com.obra.calculator.bean;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.obra.calculator.entity.Orcamento;
@@ -114,6 +115,34 @@ public class OrcamentoBean implements Serializable {
             return;
         }
 
+        // BUG-3: Rejeita valores negativos ou zero nos parâmetros de cálculo
+        if (alturaViga <= 0 || tijoloComprimento <= 0 || tijoloAltura <= 0 || tijoloLargura <= 0) {
+            ctx.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR,
+                    "Parâmetros inválidos.",
+                    "Altura da viga e dimensões do tijolo devem ser maiores que zero."));
+            return;
+        }
+        for (Aresta a : arestas) {
+            if (a.getComprimento() <= 0 || a.getLargura() <= 0 || a.getAlturaParede() <= 0) {
+                ctx.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR,
+                        "Valor inválido na aresta " + a.getId() + ".",
+                        "Comprimento, largura e altura da parede devem ser maiores que zero."));
+                return;
+            }
+            if (a.isTemJanela() && (a.getJanelaComprimento() <= 0 || a.getJanelAltura() <= 0)) {
+                ctx.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR,
+                        "Janela inválida na aresta " + a.getId() + ".",
+                        "Dimensões da janela devem ser maiores que zero."));
+                return;
+            }
+            if (a.isTemPorta() && (a.getPortaComprimento() <= 0 || a.getPortaAltura() <= 0)) {
+                ctx.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR,
+                        "Porta inválida na aresta " + a.getId() + ".",
+                        "Dimensões da porta devem ser maiores que zero."));
+                return;
+            }
+        }
+
         try {
             orcamentoResultado = orcamentoService.calcularEPersistir(
                     nomeUsuario, alturaViga,
@@ -159,23 +188,48 @@ public class OrcamentoBean implements Serializable {
             if (root.has("tijoloLargura")) {
                 tijoloLargura = root.get("tijoloLargura").asDouble(tijoloLargura);
             }
+            // BUG-2: Rejeita arestas sem alturaParede definida (resultaria em 0 tijolos silenciosamente)
+            for (Aresta a : arestas) {
+                if (a.getAlturaParede() <= 0) {
+                    ctx.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR,
+                            "JSON inválido.",
+                            "Campo 'alturaParede' ausente ou zero na aresta '"
+                                    + (a.getId() != null ? a.getId() : "?")
+                                    + "'. O cálculo de tijolos não pode ser realizado."));
+                    return false;
+                }
+            }
             return true;
+        } catch (JsonProcessingException e) {
+            // UX-1: Exibe mensagem amigável em vez da exceção bruta do Jackson
+            ctx.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR,
+                    "JSON inválido.", "Verifique a formatação e tente novamente."));
+            return false;
         } catch (Exception e) {
             ctx.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR,
-                    "JSON inválido: " + e.getMessage(), null));
+                    "Erro ao processar JSON.", e.getMessage()));
             return false;
         }
     }
 
     public void buscarPorNumero() {
-        if (termoBusca == null || termoBusca.isBlank()) return;
+        FacesContext ctx = FacesContext.getCurrentInstance();
+        if (termoBusca == null || termoBusca.isBlank()) {
+            ctx.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO,
+                    "Informe um número de orçamento para buscar.", null));
+            return;
+        }
         resultadosBusca = new ArrayList<>();
-        orcamentoService.buscarPorNumero(termoBusca)
-                .ifPresent(resultadosBusca::add);
+        orcamentoService.buscarPorNumero(termoBusca).ifPresent(resultadosBusca::add);
     }
 
     public void buscarPorNome() {
-        if (termoBusca == null || termoBusca.isBlank()) return;
+        FacesContext ctx = FacesContext.getCurrentInstance();
+        if (termoBusca == null || termoBusca.isBlank()) {
+            ctx.addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO,
+                    "Informe um nome de usuário para buscar.", null));
+            return;
+        }
         resultadosBusca = orcamentoService.buscarPorNome(termoBusca);
     }
 
